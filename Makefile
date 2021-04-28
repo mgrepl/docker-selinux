@@ -1,17 +1,28 @@
-# Installation directories.
-PREFIX ?= $(DESTDIR)/usr
+TARGETS?=container
+MODULES?=${TARGETS:=.pp.bz2}
+SHAREDIR?=/usr/share
 
-docker.pp : docker.te docker.if docker.fc
-	make -f /usr/share/selinux/devel/Makefile $@
+all: ${TARGETS:=.pp.bz2}
 
-all: docker.pp
+%.pp.bz2: %.pp
+	@echo Compressing $^ -\> $@
+	bzip2 -9 $^
 
-test: all
-	semodule -i docker.pp
-
-install: all 
-	-mkdir -p $(PREFIX)/share/selinux/packages
-	install docker.pp $(PREFIX)/share/selinux/packages
+%.pp: %.te
+	make -f ${SHAREDIR}/selinux/devel/Makefile $@
 
 clean:
-	rm -rf docker.pp *~ tmp
+	rm -f *~  *.tc *.pp *.pp.bz2
+	rm -rf tmp *.tar.gz
+
+man: install-policy
+	sepolicy manpage --path . --domain ${TARGETS}_t
+
+install-policy: all
+	semodule -i ${TARGETS}.pp.bz2
+
+install: man
+	install -D -m 644 ${TARGETS}.pp.bz2 ${DESTDIR}${SHAREDIR}/selinux/packages/container.pp.bz2
+	install -D -m 644 container.if ${DESTDIR}${SHAREDIR}/selinux/devel/include/services/container.if
+	install -D -m 644 container_selinux.8 ${DESTDIR}${SHAREDIR}/man/man8/container_selinux.8
+	install -D -m 644 container_contexts ${DESTDIR}${SHAREDIR}/containers/continer_contexts
